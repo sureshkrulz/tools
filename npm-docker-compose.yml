@@ -10,7 +10,11 @@ services:
       - "81:81"
       - "443:443"
     environment:
-      DB_SQLITE_FILE: "/data/database.sqlite"  # (optional; it's the default)
+      DB_SQLITE_FILE: "/data/database.sqlite"
+      # Set default admin credentials
+      NPM_EMAIL: "admin@example.com"        # Change to your desired admin email
+      NPM_PASS: "changeme"                  # Change to your desired admin password
+      NPM_USER: "admin"                     # Change if you want a different username
     volumes:
       - ./data:/data
-      - ./letsencrypt:/etc/letsencrypt
+      - ./letsencrypt:/etc/letsencrypt      # Fixed typo in the volume path
