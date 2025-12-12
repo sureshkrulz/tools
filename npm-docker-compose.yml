@@ -6,15 +6,11 @@ services:
     container_name: nginx-proxy-manager
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "81:81"
-      - "443:443"
+      - "80:80"       # HTTP
+      - "81:81"       # Web UI
+      - "443:443"     # HTTPS
     environment:
       DB_SQLITE_FILE: "/data/database.sqlite"
-      # Set default admin credentials
-      NPM_EMAIL: "admin@example.com"        # Change to your desired admin email
-      NPM_PASS: "changeme"                  # Change to your desired admin password
-      NPM_USER: "admin"                     # Change if you want a different username
     volumes:
       - ./data:/data
-      - ./letsencrypt:/etc/letsencrypt      # Fixed typo in the volume path
+      - ./letsencrypt:/etc/letsencrypt
