@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: kdesk-mongo-shared
+    restart: unless-stopped
+    command: mongod --oplogSize 128 --replSet rs01 --storageEngine=wiredTiger --bind_ip_all
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - kdesk-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  
+  mongo-init:
+    image: mongo:6.0
+    container_name: kdesk-mongo-init
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: |
+      bash -c "
+      until mongosh --host mongo:27017 --eval 'db.adminCommand(\"ping\")' >/dev/null 2>&1; do sleep 2; done
+      mongosh --host mongo:27017 --eval \"
+        try { rs.status(); print('Replica set ready'); } 
+        catch(e) { rs.initiate({_id: 'rs01', members: [{_id: 0, host: 'mongo:27017'}]}); }
+      \"
+      until mongosh --host mongo:27017 --eval 'rs.hello().isWritablePrimary' | grep -q true; do sleep 2; done
+      "
+    networks:
+      - kdesk-network
+
+volumes:
+  mongo-data:
+
+networks:
+  kdesk-network:
+    name: kdesk-network
+    driver: bridge
