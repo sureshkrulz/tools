@@ -1,32 +1,78 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
-# Update the package list and install required dependencies
-sudo apt update
-sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+echo "▶ Installing Docker Engine & Docker Compose (v2)"
 
-# Add Docker's official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+# Ensure script is run with sudo privileges
+if [ "$EUID" -ne 0 ]; then
+  echo "❌ Please run as root or with sudo"
+  exit 1
+fi
 
-# Add the Docker repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Remove old Docker versions if present
+echo "▶ Removing old Docker versions (if any)"
+apt-get remove -y docker docker-engine docker.io containerd runc || true
 
-# Update the package list (to include Docker packages from the newly added repo)
-sudo apt update
+# Update system
+echo "▶ Updating package index"
+apt-get update -y
 
-# Install Docker
-sudo apt install -y docker-ce docker-ce-cli containerd.io
+# Install dependencies
+echo "▶ Installing dependencies"
+apt-get install -y \
+  ca-certificates \
+  curl \
+  gnupg \
+  lsb-release
 
-# Add your user to the docker group to run Docker without sudo
-sudo usermod -aG docker $USER
+# Create keyrings directory
+install -m 0755 -d /etc/apt/keyrings
 
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+# Add Docker GPG key
+echo "▶ Adding Docker GPG key"
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
 
-# Print installed versions
+# Add Docker repository
+echo "▶ Adding Docker APT repository"
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" \
+  | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Update package index again
+apt-get update -y
+
+# Install Docker Engine + plugins
+echo "▶ Installing Docker Engine"
+apt-get install -y \
+  docker-ce \
+  docker-ce-cli \
+  containerd.io \
+  docker-buildx-plugin \
+  docker-compose-plugin
+
+# Enable Docker on boot
+echo "▶ Enabling Docker service"
+systemctl enable docker
+systemctl start docker
+
+# Add invoking user to docker group
+if [ -n "$SUDO_USER" ]; then
+  echo "▶ Adding user '$SUDO_USER' to docker group"
+  usermod -aG docker "$SUDO_USER"
+fi
+
+# Print versions
+echo
+echo "✅ Installation complete"
 echo "Docker version:"
 docker --version
+echo
 echo "Docker Compose version:"
-docker-compose --version
+docker compose version
 
-echo "Installation complete. You may need to log out and back in for group changes to take effect."
+echo
+echo "⚠️  Log out and log back in (or reboot) to use Docker without sudo"
